@@ -473,7 +473,7 @@ jobs:
                       'win32_registry': '">=1.1.5 <2.2.0"',
                       'file_picker': '8.1.7',
                       'dartssh2': '">=2.9.0"',
-                      'open_file': '"<4.0.0"',
+                      'open_file': '">=3.0.0 <4.0.0"',
                       'dynamic_color': '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
                       'record_linux': '"^1.3.1"',
@@ -696,7 +696,7 @@ jobs:
           if __name__ == "__main__":
               cmd = sys.argv[1]
               args = sys.argv[2:]
-              elif cmd == "fix_pkg_info_plus":
+              if cmd == "fix_pkg_info_plus":
                   fix_pkg_info_plus()
               elif cmd == "pin_fa":
                   pin_fa(*args)
@@ -1040,8 +1040,10 @@ jobs:
                 fi
               fi
 
-              PKG_INFO_ERR=$(grep -cE "depends on package_info_plus|package_info_plus.*(requires|version solving failed)" \
-                "$PUB_LOG" "$BUILD_LOG" 2>/dev/null || true)
+              PKG_INFO_ERR=0
+              if grep -qE "depends on package_info_plus|package_info_plus.*(requires|version solving failed)" "$PUB_LOG" "$BUILD_LOG" 2>/dev/null; then
+                PKG_INFO_ERR=1
+              fi
               if [ "${PKG_INFO_ERR:-0}" -gt 0 ]; then
                 echo "package_info_plus conflict terdeteksi, apply override..."
                 python3 pyhelper.py fix_pkg_info_plus
@@ -1171,8 +1173,11 @@ jobs:
             PUB_EXIT=${PIPESTATUS[0]}
 
             if [ $PUB_EXIT -ne 0 ]; then
-              PKG_INFO_FB=$(grep -cE "depends on package_info_plus|package_info_plus.*(requires|version solving failed)" \
-                "$FALLBACK_PUB_LOG" 2>/dev/null || true)
+              PKG_INFO_FB=0
+              if grep -qE "depends on package_info_plus|package_info_plus.*(requires|version solving failed)" \
+                "$FALLBACK_PUB_LOG" 2>/dev/null; then
+                PKG_INFO_FB=1
+              fi
               if [ "${PKG_INFO_FB:-0}" -gt 0 ]; then
                 echo "package_info_plus conflict di fallback, apply override..."
                 python3 pyhelper.py fix_pkg_info_plus
