@@ -393,7 +393,7 @@ jobs:
                   return
               with open(pubspec_path) as f:
                   content = f.read()
-              override = '">=8.3.0 <11.0.0"'
+              override = '">=10.1.0 <11.0.0"'
               if re.search(r'^\s+package_info_plus\s*:', content, re.M):
                   content = re.sub(
                       r'(^\s*package_info_plus\s*:\s*).*$',
@@ -457,14 +457,15 @@ jobs:
               if flutter_ver == "3.47.0":
                   overrides_to_add = {
                       'permission_handler_android': '"<13.0.0"',
-                      'win32': '"<7.0.0"',
+                      'win32': '">=5.5.0 <6.0.0"',
                       'win32_registry': '">=3.0.0 <4.0.0"',
                       'file_picker': '8.1.7',
-                      'dartssh2': '">=2.9.0"',
+                      'dartssh2': '">=2.9.0 <2.14.0"',
                       'dynamic_color': '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
                       'record_linux': '"^1.3.1"',
-                      'package_info_plus': '">=8.3.0 <11.0.0"',
+                      'record_platform_interface': '"^1.3.0"',
+                      'package_info_plus': '">=10.1.0 <11.0.0"',
                   }
               else:
                   overrides_to_add = {
@@ -472,12 +473,13 @@ jobs:
                       'win32': '">=5.5.0 <6.0.0"',
                       'win32_registry': '">=1.1.5 <2.2.0"',
                       'file_picker': '8.1.7',
-                      'dartssh2': '">=2.9.0"',
+                      'dartssh2': '">=2.9.0 <2.14.0"',
                       'open_file': '">=3.0.0 <4.0.0"',
                       'dynamic_color': '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
                       'record_linux': '"^1.3.1"',
-                      'package_info_plus': '">=8.3.0 <11.0.0"',
+                      'record_platform_interface': '"^1.3.0"',
+                      'package_info_plus': '">=10.1.0 <11.0.0"',
                   }
               if 'dependency_overrides:' not in content:
                   entries = ''.join(f'  {k}: {v}\n' for k, v in overrides_to_add.items())
@@ -571,6 +573,64 @@ jobs:
                       print(f"Patched {gradle_file}: compileSdk/targetSdk {old} -> {new_sdk}")
                   else:
                       print(f"compileSdk {old} sudah >= {new_sdk}, skip")
+
+          def patch_v1_embedding():
+              import glob
+              manifest_paths = glob.glob('android/app/src/main/AndroidManifest.xml')
+              for manifest_path in manifest_paths:
+                  with open(manifest_path) as f:
+                      content = f.read()
+                  if 'flutterEmbedding' not in content:
+                      content = re.sub(
+                          r'(<activity\b[^>]*>)',
+                          lambda m: m.group(1) + '\n            <meta-data android:name="flutterEmbedding" android:value="2"/>',
+                          content,
+                          count=1
+                      )
+                      with open(manifest_path, 'w') as f:
+                          f.write(content)
+                      print(f"Patched AndroidManifest.xml: tambah flutterEmbedding v2")
+                  else:
+                      print("flutterEmbedding sudah ada di AndroidManifest.xml")
+
+              for ext in ['kt', 'java']:
+                  for path in glob.glob(f'android/app/src/main/kotlin/**/*.{ext}', recursive=True) + \
+                              glob.glob(f'android/app/src/main/java/**/*.{ext}', recursive=True):
+                      with open(path) as f:
+                          content = f.read()
+                      if 'io.flutter.app.FlutterActivity' in content:
+                          content = content.replace(
+                              'io.flutter.app.FlutterActivity',
+                              'io.flutter.embedding.android.FlutterActivity'
+                          )
+                          with open(path, 'w') as f:
+                              f.write(content)
+                          print(f"Patched {path}: migrate FlutterActivity ke v2 embedding")
+
+          def patch_ndk_version(ndk_ver="28.2.13676358"):
+              import glob
+              for path in ['android/app/build.gradle.kts', 'android/app/build.gradle']:
+                  if not os.path.exists(path):
+                      continue
+                  with open(path) as f:
+                      content = f.read()
+                  if re.search(r'ndkVersion\s*=?\s*["\']?[\d.]+["\']?', content):
+                      content = re.sub(
+                          r'(ndkVersion\s*=?\s*)["\']?[\d.]+["\']?',
+                          lambda m: m.group(1) + f'"{ndk_ver}"',
+                          content
+                      )
+                  else:
+                      content = re.sub(
+                          r'(android\s*\{)',
+                          lambda m: m.group(1) + f'\n        ndkVersion = "{ndk_ver}"',
+                          content,
+                          count=1
+                      )
+                  with open(path, 'w') as f:
+                      f.write(content)
+                  print(f"Patched {path}: ndkVersion -> {ndk_ver}")
+                  break
 
           def patch_minsdk(req):
               for path in ["android/app/build.gradle.kts", "android/app/build.gradle"]:
@@ -698,6 +758,10 @@ jobs:
               args = sys.argv[2:]
               if cmd == "fix_pkg_info_plus":
                   fix_pkg_info_plus()
+              elif cmd == "patch_v1_embedding":
+                  patch_v1_embedding()
+              elif cmd == "patch_ndk_version":
+                  patch_ndk_version(*args)
               elif cmd == "pin_fa":
                   pin_fa(*args)
               elif cmd == "pin_overrides":
@@ -1033,6 +1097,49 @@ jobs:
 
                 if [ $BUILD_EXIT -eq 0 ]; then
                   echo "✅ BUILD BERHASIL setelah SDK catch-all"
+                  SUCCESS=true
+                  FLUTTER_VERSION_USED="$FLUTTER_VER"
+                  FA_VERSION_USED="$FA_VER"
+                  break
+                fi
+              fi
+
+              V1_EMBED_ERR=0
+              if grep -qE "deleted Android v1 embedding|FlutterApplication is not necessary|v1 embedding is deleted" "$BUILD_LOG" 2>/dev/null; then
+                V1_EMBED_ERR=1
+              fi
+              if [ "${V1_EMBED_ERR:-0}" -gt 0 ]; then
+                echo "Android v1 embedding terdeteksi, migrate ke v2..."
+                python3 pyhelper.py patch_v1_embedding
+                refresh_local_properties
+                fvm flutter build apk --release --no-tree-shake-icons \
+                  --android-skip-build-dependency-validation 2>&1 | tee "$BUILD_LOG"
+                BUILD_EXIT=${PIPESTATUS[0]}
+                if [ $BUILD_EXIT -eq 0 ]; then
+                  echo "✅ BUILD BERHASIL setelah v1 embedding fix"
+                  SUCCESS=true
+                  FLUTTER_VERSION_USED="$FLUTTER_VER"
+                  FA_VERSION_USED="$FA_VER"
+                  break
+                fi
+              fi
+
+              NDK_ERR=0
+              if grep -qE "requires Android NDK [0-9]+|ndkVersion.*[0-9]+.*but.*[0-9]+|plugin.*depend.*different.*NDK" "$BUILD_LOG" 2>/dev/null; then
+                NDK_ERR=1
+              fi
+              if [ "${NDK_ERR:-0}" -gt 0 ]; then
+                NDK_NEEDED=$(grep -oE "requires Android NDK ([0-9.]+)|NDK version ([0-9.]+)" "$BUILD_LOG" 2>/dev/null \
+                  | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | sort -V | tail -1)
+                NDK_TARGET="${NDK_NEEDED:-28.2.13676358}"
+                echo "NDK mismatch terdeteksi, patch ndkVersion -> $NDK_TARGET..."
+                python3 pyhelper.py patch_ndk_version "$NDK_TARGET"
+                refresh_local_properties
+                fvm flutter build apk --release --no-tree-shake-icons \
+                  --android-skip-build-dependency-validation 2>&1 | tee "$BUILD_LOG"
+                BUILD_EXIT=${PIPESTATUS[0]}
+                if [ $BUILD_EXIT -eq 0 ]; then
+                  echo "✅ BUILD BERHASIL setelah NDK version fix"
                   SUCCESS=true
                   FLUTTER_VERSION_USED="$FLUTTER_VER"
                   FA_VERSION_USED="$FA_VER"
