@@ -458,9 +458,9 @@ jobs:
                   overrides_to_add = {
                       'permission_handler_android': '"<13.0.0"',
                       'win32': '">=5.5.0 <6.0.0"',
-                      'win32_registry': '">=3.0.0 <4.0.0"',
+                      'win32_registry': '">=1.1.5 <3.0.0"',
                       'file_picker': '8.1.7',
-                      'dartssh2': '">=2.9.0 <2.14.0"',
+                      'dartssh2': '">=2.9.0 <2.13.0"',
                       'dynamic_color': '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
                       'record_linux': '"^1.3.1"',
@@ -471,9 +471,9 @@ jobs:
                   overrides_to_add = {
                       'permission_handler_android': '"<13.0.0"',
                       'win32': '">=5.5.0 <6.0.0"',
-                      'win32_registry': '">=1.1.5 <2.2.0"',
+                      'win32_registry': '">=1.1.5 <3.0.0"',
                       'file_picker': '8.1.7',
-                      'dartssh2': '">=2.9.0 <2.14.0"',
+                      'dartssh2': '">=2.9.0 <2.13.0"',
                       'open_file': '">=3.0.0 <4.0.0"',
                       'dynamic_color': '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
@@ -580,6 +580,22 @@ jobs:
               for manifest_path in manifest_paths:
                   with open(manifest_path) as f:
                       content = f.read()
+                  changed = False
+                  if 'io.flutter.app.FlutterApplication' in content:
+                      content = content.replace(
+                          'io.flutter.app.FlutterApplication',
+                          '${applicationName}'
+                      )
+                      changed = True
+                      print("Patched AndroidManifest.xml: FlutterApplication -> ${applicationName}")
+                  if re.search(r'android:name\s*=\s*["\'].*FlutterApplication["\']', content):
+                      content = re.sub(
+                          r'(android:name\s*=\s*["\'])([^"\']*FlutterApplication)(["\'])',
+                          r'\1${applicationName}\3',
+                          content
+                      )
+                      changed = True
+                      print("Patched AndroidManifest.xml: custom FlutterApplication -> ${applicationName}")
                   if 'flutterEmbedding' not in content:
                       content = re.sub(
                           r'(<activity\b[^>]*>)',
@@ -587,25 +603,36 @@ jobs:
                           content,
                           count=1
                       )
-                      with open(manifest_path, 'w') as f:
-                          f.write(content)
-                      print(f"Patched AndroidManifest.xml: tambah flutterEmbedding v2")
+                      changed = True
+                      print("Patched AndroidManifest.xml: tambah flutterEmbedding v2")
                   else:
                       print("flutterEmbedding sudah ada di AndroidManifest.xml")
+                  if changed:
+                      with open(manifest_path, 'w') as f:
+                          f.write(content)
 
               for ext in ['kt', 'java']:
                   for path in glob.glob(f'android/app/src/main/kotlin/**/*.{ext}', recursive=True) + \
                               glob.glob(f'android/app/src/main/java/**/*.{ext}', recursive=True):
                       with open(path) as f:
                           content = f.read()
+                      patched = False
                       if 'io.flutter.app.FlutterActivity' in content:
                           content = content.replace(
                               'io.flutter.app.FlutterActivity',
                               'io.flutter.embedding.android.FlutterActivity'
                           )
+                          patched = True
+                      if 'io.flutter.app.FlutterApplication' in content:
+                          content = content.replace(
+                              'io.flutter.app.FlutterApplication',
+                              'io.flutter.embedding.engine.FlutterApplication'
+                          )
+                          patched = True
+                      if patched:
                           with open(path, 'w') as f:
                               f.write(content)
-                          print(f"Patched {path}: migrate FlutterActivity ke v2 embedding")
+                          print(f"Patched {path}: migrate ke v2 embedding")
 
           def patch_ndk_version(ndk_ver="28.2.13676358"):
               import glob
@@ -857,7 +884,7 @@ jobs:
             local SETTINGS_FILE="android/settings.gradle.kts"
             [ -f "$SETTINGS_FILE" ] || return 0
 
-            if [ "$FLUTTER_VER" = "3.47.0" ]; then
+            if [ "$FLUTTER_VER" = "3.47.0" ] || [ "$FLUTTER_VER" = "3.47.2" ]; then
               TARGET_AGP="8.9.1"
               TARGET_KOTLIN="2.2.20"
               python3 pyhelper.py patch_settings "$SETTINGS_FILE" "$TARGET_AGP" "$TARGET_KOTLIN"
@@ -1240,17 +1267,17 @@ jobs:
             echo ""
             echo "⚠️ Semua attempt dengan version pool gagal, mencoba github-style fallback build..."
             echo "════════════════════════════════════════════"
-            echo "GitHub Fallback: Flutter 3.38.0 + clean build tanpa extra flags"
+            echo "GitHub Fallback: Flutter 3.47.2 + clean build tanpa extra flags"
             echo "════════════════════════════════════════════"
 
             cd "$PROJECT_ROOT"
             cp pubspec.yaml.orig_backup pubspec.yaml 2>/dev/null || true
             rm -f pubspec.lock
 
-            fvm install 3.38.0 2>&1 | tail -3 || true
-            fvm use 3.38.0 --force 2>&1 | tail -2 || true
+            fvm install 3.47.2 2>&1 | tail -3 || true
+            fvm use 3.47.2 --force 2>&1 | tail -2 || true
 
-            FLUTTER_VER="3.38.0"
+            FLUTTER_VER="3.47.2"
             fix_agp_kotlin "$FLUTTER_VER"
             patch_launcher_icons
             pin_safe_overrides
@@ -1301,7 +1328,7 @@ jobs:
               if [ $BUILD_EXIT -eq 0 ]; then
                 echo "✅ GITHUB FALLBACK BUILD BERHASIL"
                 SUCCESS=true
-                FLUTTER_VERSION_USED="3.38.0"
+                FLUTTER_VERSION_USED="3.47.2"
                 FA_VERSION_USED="fallback"
               else
                 echo "❌ GitHub fallback gagal, mencoba dengan --no-tree-shake-icons..."
@@ -1310,7 +1337,7 @@ jobs:
                 if [ $BUILD_EXIT -eq 0 ]; then
                   echo "✅ GITHUB FALLBACK BUILD BERHASIL (dengan --no-tree-shake-icons)"
                   SUCCESS=true
-                  FLUTTER_VERSION_USED="3.38.0"
+                  FLUTTER_VERSION_USED="3.47.2"
                   FA_VERSION_USED="fallback-notreeshake"
                 fi
               fi
@@ -1322,7 +1349,7 @@ jobs:
           if [ "$SUCCESS" = false ]; then
             echo ""
             echo "❌ SEMUA VERSI FLUTTER DI POOL SUDAH DICOBA - BUILD TETAP GAGAL"
-            echo "Versi yang dicoba: $CANDIDATES + GitHub Fallback 3.38.0"
+            echo "Versi yang dicoba: $CANDIDATES + GitHub Fallback 3.47.2"
             exit 1
           fi
 
