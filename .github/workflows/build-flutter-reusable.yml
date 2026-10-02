@@ -276,7 +276,7 @@ jobs:
                   if in_env:
                       if line and not line[0].isspace() and not line.startswith('#'):
                           break
-                      m = re.match(r'^\s+sdk\s*:\s*["\']?[>=^~\s]*(\d+\.\d+)', line)
+                      m = re.match(r'^\s+sdk\s*:\s*["\']?[>=^~\s]*(\d+\.\d+(?:\.\d+)?)', line)
                       if m:
                           print(m.group(1))
                           sys.exit(0)
@@ -306,14 +306,16 @@ jobs:
                   return (parts[0], parts[1] if len(parts) > 1 else 0)
               except Exception:
                   return (3, 8)
-
+          
           compat_map = {
-              "3.8": ["3.32.0", "3.32.5", "3.35.0", "3.38.0", "3.47.0"],
-              "3.9": ["3.32.5", "3.35.0", "3.38.0", "3.47.0"],
-              "3.10": ["3.35.0", "3.38.0", "3.47.0"],
-              "3.11": ["3.38.0", "3.47.0"],
-              "3.12": ["3.47.0"],
-              "3.13": ["3.47.0"],
+              "3.8":   ["3.32.0", "3.32.5", "3.35.0", "3.38.0", "3.47.0"],
+              "3.8.0": ["3.32.0", "3.32.5", "3.35.0", "3.38.0", "3.47.0"],
+              "3.8.1": ["3.32.5", "3.35.0", "3.38.0", "3.47.0"],
+              "3.9":   ["3.32.5", "3.35.0", "3.38.0", "3.47.0"],
+              "3.10":  ["3.35.0", "3.38.0", "3.47.0"],
+              "3.11":  ["3.38.0", "3.47.0"],
+              "3.12":  ["3.47.0"],
+              "3.13":  ["3.47.0"],
           }
 
           if min_sdk in compat_map:
@@ -417,7 +419,7 @@ jobs:
               if flutter_ver == "3.47.0":
                   all_overrides = {
                       'permission_handler_android': '"<13.0.0"',
-                      'win32': '"<7.0.0"',
+                      'win32': '">=5.10.0 <6.0.0"',
                       'win32_registry': '">=3.0.0 <4.0.0"',
                       'file_picker': '8.1.7',
                       'dartssh2': '">=2.9.0"',
@@ -877,8 +879,10 @@ jobs:
               refresh_local_properties
 
               PUB_LOG=$(mktemp)
-              if ! fvm flutter pub get 2>&1 | tee "$PUB_LOG"; then
-                echo "flutter pub get gagal, coba versi berikutnya..."
+              fvm flutter pub get 2>&1 | tee "$PUB_LOG"
+              PUB_EXIT=${PIPESTATUS[0]}
+              if [ $PUB_EXIT -ne 0 ]; then
+                echo "flutter pub get gagal (exit $PUB_EXIT), coba versi berikutnya..."
                 continue
               fi
 
