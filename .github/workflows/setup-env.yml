@@ -60,14 +60,29 @@ jobs:
           echo "=== NDK ==="
           ls "$ANDROID_HOME/ndk/" 2>/dev/null | head -5
 
-          echo "Compressing android-sdk-extras..."
-          tar -czf /tmp/android-sdk-extras.tar.gz \
+          echo "Compressing android-sdk-platforms..."
+          tar -czf /tmp/android-sdk-platforms.tar.gz \
             -C /usr/local/lib/android/sdk \
-            ndk \
             platforms \
             build-tools \
             2>/dev/null
-          echo "android-sdk-extras.tar.gz: $(du -sh /tmp/android-sdk-extras.tar.gz | cut -f1)"
+          echo "android-sdk-platforms.tar.gz: $(du -sh /tmp/android-sdk-platforms.tar.gz | cut -f1)"
+
+          echo "Compressing android-ndk-27..."
+          tar -czf /tmp/android-ndk-27.tar.gz \
+            -C /usr/local/lib/android/sdk/ndk \
+            27.0.12077973 \
+            2>/dev/null || echo "NDK 27 tidak ditemukan, skip"
+          [ -f /tmp/android-ndk-27.tar.gz ] && \
+            echo "android-ndk-27.tar.gz: $(du -sh /tmp/android-ndk-27.tar.gz | cut -f1)"
+
+          echo "Compressing android-ndk-28..."
+          tar -czf /tmp/android-ndk-28.tar.gz \
+            -C /usr/local/lib/android/sdk/ndk \
+            28.2.13676358 \
+            2>/dev/null || echo "NDK 28 tidak ditemukan, skip"
+          [ -f /tmp/android-ndk-28.tar.gz ] && \
+            echo "android-ndk-28.tar.gz: $(du -sh /tmp/android-ndk-28.tar.gz | cut -f1)"
 
       - name: Setup Dart SDK (untuk FVM)
         uses: dart-lang/setup-dart@v1
@@ -192,8 +207,23 @@ jobs:
       - name: Summary ukuran semua asset
         run: |
           echo "=== Total asset yang akan diupload ==="
-          du -sh /tmp/fvm-*.tar.gz /tmp/android-sdk-extras.tar.gz
-          du -shc /tmp/fvm-*.tar.gz /tmp/android-sdk-extras.tar.gz | tail -1
+          du -sh \
+            /tmp/android-sdk-platforms.tar.gz \
+            /tmp/android-ndk-27.tar.gz \
+            /tmp/android-ndk-28.tar.gz \
+            /tmp/fvm-3.32.0.tar.gz \
+            /tmp/fvm-3.32.5.tar.gz \
+            /tmp/fvm-3.35.0.tar.gz \
+            /tmp/fvm-3.38.0.tar.gz \
+            /tmp/fvm-3.47.0.tar.gz \
+            /tmp/fvm-3.47.6.tar.gz \
+            2>/dev/null
+          du -shc \
+            /tmp/android-sdk-platforms.tar.gz \
+            /tmp/android-ndk-27.tar.gz \
+            /tmp/android-ndk-28.tar.gz \
+            /tmp/fvm-*.tar.gz \
+            2>/dev/null | tail -1
 
       - name: Publish ke GitHub Release
         env:
@@ -204,17 +234,25 @@ jobs:
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin --delete "$TAG" 2>/dev/null || true
 
-          gh release create "$TAG" \
-            --title "Build Environment: $TAG" \
-            --notes "Pre-installed Flutter pool + Android SDK/NDK. Dibuat: $(date -u '+%Y-%m-%d %H:%M UTC')" \
-            --prerelease \
-            /tmp/android-sdk-extras.tar.gz \
+          ASSETS=""
+          for f in \
+            /tmp/android-sdk-platforms.tar.gz \
+            /tmp/android-ndk-27.tar.gz \
+            /tmp/android-ndk-28.tar.gz \
             /tmp/fvm-3.32.0.tar.gz \
             /tmp/fvm-3.32.5.tar.gz \
             /tmp/fvm-3.35.0.tar.gz \
             /tmp/fvm-3.38.0.tar.gz \
             /tmp/fvm-3.47.0.tar.gz \
-            /tmp/fvm-3.47.6.tar.gz
+            /tmp/fvm-3.47.6.tar.gz; do
+            [ -f "$f" ] && ASSETS="$ASSETS $f"
+          done
+
+          gh release create "$TAG" \
+            --title "Build Environment: $TAG" \
+            --notes "Pre-installed Flutter pool + Android SDK/NDK. Dibuat: $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            --prerelease \
+            $ASSETS
 
           echo "✅ Release $TAG berhasil"
           gh release view "$TAG" --json assets \
