@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag release environment (e.g. build-env-v1)'
+        description: 'Tag release environment (e.g. build-env-v2)'
         required: true
-        default: 'build-env-v1'
+        default: 'build-env-v2'
 
 jobs:
   setup:
@@ -63,9 +63,11 @@ jobs:
           echo "Compressing android-sdk-platforms..."
           tar -czf /tmp/android-sdk-platforms.tar.gz \
             -C /usr/local/lib/android/sdk \
-            platforms \
-            build-tools \
-            2>/dev/null
+            platforms/android-35 \
+            platforms/android-36 \
+            platforms/android-37 \
+            build-tools/35.0.0 \
+            2>/dev/null || true
           echo "android-sdk-platforms.tar.gz: $(du -sh /tmp/android-sdk-platforms.tar.gz | cut -f1)"
 
           echo "Compressing android-ndk-27..."

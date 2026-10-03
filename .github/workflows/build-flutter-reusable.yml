@@ -14,7 +14,7 @@ on:
         type: string
 
 env:
-  BUILD_ENV_TAG: build-env-v1
+  BUILD_ENV_TAG: build-env-v2
   FLUTTER_VERSION_POOL: |
     3.32.0
     3.32.5
@@ -146,7 +146,7 @@ jobs:
             --pattern "android-sdk-platforms.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
             --dir /tmp/ --clobber
-          tar -xzf /tmp/android-sdk-platforms.tar.gz -C "$SDK_BASE/"
+          tar -xzf /tmp/android-sdk-platforms.tar.gz -C "$SDK_BASE/" --no-same-owner
           rm -f /tmp/android-sdk-platforms.tar.gz
           echo "Platforms ✅"
 
