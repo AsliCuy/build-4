@@ -141,21 +141,47 @@ jobs:
           TAG="${{ env.BUILD_ENV_TAG }}"
           SDK_BASE=/usr/local/lib/android/sdk
 
-          echo "Restoring SDK platforms..."
           gh release download "$TAG" \
             --pattern "android-sdk-platforms.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
             --dir /tmp/ --clobber
-          tar -xzf /tmp/android-sdk-platforms.tar.gz -C "$SDK_BASE/" --no-same-owner
+
+          mkdir -p /tmp/sdk-restore/platforms /tmp/sdk-restore/build-tools
+          tar -xzf /tmp/android-sdk-platforms.tar.gz \
+            -C /tmp/sdk-restore/ \
+            --no-same-owner 2>/dev/null || true
           rm -f /tmp/android-sdk-platforms.tar.gz
-          echo "Platforms ✅"
+
+          for dir in /tmp/sdk-restore/platforms/*/; do
+            name=$(basename "$dir")
+            if [ ! -d "$SDK_BASE/platforms/$name" ]; then
+              sudo cp -r "$dir" "$SDK_BASE/platforms/$name"
+              echo "Installed platform: $name ✅"
+            else
+              echo "Platform $name sudah ada di runner, skip"
+            fi
+          done
+
+          for dir in /tmp/sdk-restore/build-tools/*/; do
+            name=$(basename "$dir")
+            if [ ! -d "$SDK_BASE/build-tools/$name" ]; then
+              sudo cp -r "$dir" "$SDK_BASE/build-tools/$name"
+              echo "Installed build-tools: $name ✅"
+            else
+              echo "build-tools $name sudah ada di runner, skip"
+            fi
+          done
+          rm -rf /tmp/sdk-restore
 
           echo "Restoring NDK 27..."
           gh release download "$TAG" \
             --pattern "android-ndk-27.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
             --dir /tmp/ --clobber 2>/dev/null && \
-          tar -xzf /tmp/android-ndk-27.tar.gz -C "$SDK_BASE/ndk/" && \
+          mkdir -p "$SDK_BASE/ndk" && \
+          tar -xzf /tmp/android-ndk-27.tar.gz \
+            -C "$SDK_BASE/ndk/" \
+            --no-same-owner 2>/dev/null || true && \
           rm -f /tmp/android-ndk-27.tar.gz && \
           echo "NDK 27 ✅" || echo "NDK 27 tidak ada di release, skip"
 
@@ -164,7 +190,10 @@ jobs:
             --pattern "android-ndk-28.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
             --dir /tmp/ --clobber 2>/dev/null && \
-          tar -xzf /tmp/android-ndk-28.tar.gz -C "$SDK_BASE/ndk/" && \
+          mkdir -p "$SDK_BASE/ndk" && \
+          tar -xzf /tmp/android-ndk-28.tar.gz \
+            -C "$SDK_BASE/ndk/" \
+            --no-same-owner 2>/dev/null || true && \
           rm -f /tmp/android-ndk-28.tar.gz && \
           echo "NDK 28 ✅" || echo "NDK 28 tidak ada di release, skip"
 
