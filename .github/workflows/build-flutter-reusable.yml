@@ -940,6 +940,19 @@ jobs:
                 break
               fi
 
+              DART_SRC_SYNTAX=$(grep -cE \
+                "^lib/.+\.dart:[0-9]+:[0-9]+: Error: (Variables must be declared|Expected ';' after|Unexpected token|Expected a declaration)" \
+                "$BUILD_LOG" 2>/dev/null || true)
+              if [ "${DART_SRC_SYNTAX:-0}" -gt 0 ]; then
+                echo ""
+                echo "💀 FATAL: Dart source syntax error di project — retry Flutter/FA version tidak akan help"
+                grep -E "^lib/.+\.dart:[0-9]+:[0-9]+: Error:" "$BUILD_LOG" | head -10
+                echo ""
+                echo "Periksa import statements / syntax di file dart yang error di atas"
+                SUCCESS=fatal_dart
+                break
+              fi
+
               ICONDATA_ERR=$(grep -cE "IconData.*can't be extended|can't be extended.*because it's a final class" \
                 "$BUILD_LOG" 2>/dev/null || true)
               if [ "${ICONDATA_ERR:-0}" -gt 0 ]; then
@@ -1082,6 +1095,11 @@ jobs:
               echo "Error: $ERROR_MSG"
             done
 
+            if [ "$SUCCESS" = "fatal_dart" ]; then
+              echo "❌ BUILD DIHENTIKAN — Dart source syntax error, tidak dilanjut ke Flutter version lain"
+              break
+            fi
+
             if [ "$SUCCESS" = true ]; then
               break
             fi
@@ -1089,6 +1107,13 @@ jobs:
             echo "❌ BUILD GAGAL dengan Flutter $FLUTTER_VER"
             echo "Trying next Flutter version..."
           done
+
+          if [ "$SUCCESS" = "fatal_dart" ]; then
+            echo ""
+            echo "❌ BUILD GAGAL karena Dart source syntax error di project"
+            echo "Fix: periksa file dart yang error (lihat log di atas), pastikan semua import statements benar"
+            exit 1
+          fi
 
           if [ "$SUCCESS" = false ]; then
             echo ""
