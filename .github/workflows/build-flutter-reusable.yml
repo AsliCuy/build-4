@@ -968,7 +968,7 @@ jobs:
               fi
 
               DART_SRC_SYNTAX=$(grep -cE \
-                "^lib/.+\.dart:[0-9]+:[0-9]+: Error: (Variables must be declared|Expected ';' after|Unexpected token|Expected a declaration)" \
+                "^lib/.+\.dart:[0-9]+:[0-9]+: Error: (Variables must be declared|Expected [^a-z]|Unexpected (token|character)|Expected a declaration)" \
                 "$BUILD_LOG" 2>/dev/null || true)
               if [ "${DART_SRC_SYNTAX:-0}" -gt 0 ]; then
                 echo ""
