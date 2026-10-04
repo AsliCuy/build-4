@@ -499,6 +499,11 @@ jobs:
                   }
 
               overrides_to_add = {pkg: ver for pkg, ver in all_overrides.items() if is_used(pkg)}
+
+              if 'package_info_plus' in overrides_to_add:
+                  overrides_to_add['http'] = '"^1.6.0"'
+                  print("Injecting http ^1.6.0 override — required by package_info_plus >=10.x")
+
               if not overrides_to_add:
                   print(f"Selective override ({flutter_ver}): tidak ada package yang dipakai, skip")
                   return
