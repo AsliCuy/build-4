@@ -477,7 +477,7 @@ jobs:
                       'permission_handler_android': '"<13.0.0"',
                       'win32':               win32_range,
                       'win32_registry':      win32_reg_range,
-                      'device_info_plus':    '">=10.0.0 <10.1.0"',
+                      'device_info_plus':    '">=10.0.0 <11.0.0"',
                       'package_info_plus':   '">=10.1.0 <10.2.0"',
                       'file_picker':         '">=8.3.3"',
                       'dartssh2':            '">=2.9.0"',
@@ -502,6 +502,7 @@ jobs:
 
               if 'package_info_plus' in overrides_to_add:
                   overrides_to_add['http'] = '"^1.6.0"'
+                  overrides_to_add['web']  = '"^1.1.1"'
                   print("Injecting http ^1.6.0 override — required by package_info_plus >=10.x")
 
               if not overrides_to_add:
