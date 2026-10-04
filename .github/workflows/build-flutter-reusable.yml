@@ -141,6 +141,7 @@ jobs:
           TAG="${{ env.BUILD_ENV_TAG }}"
           SDK_BASE=/usr/local/lib/android/sdk
 
+          echo "Restoring SDK platforms..."
           gh release download "$TAG" \
             --pattern "android-sdk-platforms.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
@@ -442,10 +443,35 @@ jobs:
                   return False
 
               if flutter_ver in ("3.47.0", "3.47.6"):
+                  nip_uses_win32_5 = False
+                  nip_match = re.search(
+                      r'network_info_plus\s*:\s*[\^~\'">=<\s]*(\d+)\.', content, re.M
+                  )
+                  if nip_match and int(nip_match.group(1)) <= 4:
+                      nip_uses_win32_5 = True
+                  if not nip_uses_win32_5 and lock_content:
+                      nip_lock = re.search(
+                          r'network_info_plus:\n(?:.*\n)*?.*?version:\s*"(\d+)\.',
+                          lock_content
+                      )
+                      if nip_lock and int(nip_lock.group(1)) <= 4:
+                          nip_uses_win32_5 = True
+
+                  if nip_uses_win32_5:
+                      print("Detected network_info_plus 4.x — pakai win32 5.x + win32_registry 2.x")
+                      win32_range     = '">=5.10.0 <6.0.0"'
+                      win32_reg_range = '">=2.0.0 <3.0.0"'
+                  else:
+                      print("Tidak ada network_info_plus 4.x — pakai win32 6.x + win32_registry 3.x")
+                      win32_range     = '">=6.0.0 <7.0.0"'
+                      win32_reg_range = '">=3.0.0 <4.0.0"'
+
                   all_overrides = {
                       'permission_handler_android': '"<13.0.0"',
-                      'win32':               '">=6.0.0 <7.0.0"',
-                      'win32_registry':      '">=3.0.0 <4.0.0"',
+                      'win32':               win32_range,
+                      'win32_registry':      win32_reg_range,
+                      'device_info_plus':    '">=10.0.0 <10.1.0"',
+                      'package_info_plus':   '">=10.1.0 <10.2.0"',
                       'file_picker':         '">=8.3.3"',
                       'dartssh2':            '">=2.9.0"',
                       'dynamic_color':       '"<1.9.0"',
