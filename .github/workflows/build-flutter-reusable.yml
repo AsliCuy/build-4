@@ -494,6 +494,15 @@ jobs:
                       pip_range = '">=10.1.0 <10.2.0"'
                       dip_range = '">=10.1.1 <11.0.0"'
 
+                  if 'better_player' in content:
+                      if nip_uses_win32_5:
+                          nip_uses_win32_5 = False
+                          win32_range     = '">=6.0.0 <7.0.0"'
+                          win32_reg_range = '">=3.0.0 <4.0.0"'
+                          print("better_player: upgrading win32 5.x → 6.x tier")
+                      pip_range = '">=10.1.0 <10.2.0"'
+                      dip_range = '">=10.1.1 <11.0.0"'
+
                   all_overrides = {
                       'permission_handler_android': '"<13.0.0"',
                       'win32':               win32_range,
@@ -532,8 +541,7 @@ jobs:
 
               if 'better_player' in content:
                   overrides_to_add['xml'] = '"^7.0.1"'
-                  overrides_to_add['wakelock_plus'] = '">=1.0.0 <1.7.0"'
-                  print("Injecting xml ^7.0.1 + wakelock_plus <1.7.0 — better_player git dep detected")
+                  print("Injecting xml ^7.0.1 — better_player git dep detected")
 
               if not overrides_to_add:
                   print(f"Selective override ({flutter_ver}): tidak ada package yang dipakai, skip")
