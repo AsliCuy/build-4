@@ -505,6 +505,7 @@ jobs:
                       'dynamic_color':       '"<1.9.0"',
                       'flutter_web_auth_2':  '">=4.0.0"',
                       'record_linux':        '"^1.3.1"',
+                      'google_fonts':        '">=5.0.0 <6.3.3"',
                   }
               else:
                   all_overrides = {
@@ -517,6 +518,7 @@ jobs:
                       'dynamic_color':      '"<1.9.0"',
                       'flutter_web_auth_2': '">=4.0.0"',
                       'record_linux':       '"^1.3.1"',
+                      'google_fonts':       '">=5.0.0 <6.3.3"',
                   }
 
               overrides_to_add = {pkg: ver for pkg, ver in all_overrides.items() if is_used(pkg)}
@@ -527,6 +529,10 @@ jobs:
                       overrides_to_add['http'] = '"^1.6.0"'
                       overrides_to_add['web']  = '"^1.1.1"'
                       print("Injecting http ^1.6.0 + web ^1.1.1 override — required by package_info_plus >=10.x")
+
+              if 'better_player' in content:
+                  overrides_to_add['xml'] = '"^7.0.1"'
+                  print("Injecting xml ^7.0.1 override — better_player git dep detected")
 
               if not overrides_to_add:
                   print(f"Selective override ({flutter_ver}): tidak ada package yang dipakai, skip")
@@ -956,6 +962,13 @@ jobs:
                   fi
                   echo "pub get OK setelah share_plus downgrade"
                 else
+                  XML_CONFLICT=$(grep -c "is incompatible with.*xml\|xml.*incompatible with" "$PUB_LOG" 2>/dev/null || true)
+                  if [ "${XML_CONFLICT:-0}" -gt 0 ]; then
+                    echo "💀 FATAL: xml version conflict — better_player vs youtube_explode_dart tidak compatible"
+                    echo "Cek dependency_overrides xml sudah di-inject. Jika masih gagal, salah satu package perlu diupdate."
+                    SUCCESS=fatal_xml
+                    break 2
+                  fi
                   echo "flutter pub get gagal (exit $PUB_EXIT), skip..."
                   continue
                 fi
@@ -1131,8 +1144,8 @@ jobs:
               echo "Error: $ERROR_MSG"
             done
 
-            if [ "$SUCCESS" = "fatal_dart" ]; then
-              echo "❌ BUILD DIHENTIKAN — Dart source syntax error, tidak dilanjut ke Flutter version lain"
+            if [ "$SUCCESS" = "fatal_dart" ] || [ "$SUCCESS" = "fatal_xml" ]; then
+              echo "❌ BUILD DIHENTIKAN — structural dependency conflict, tidak dilanjut ke Flutter version lain"
               break
             fi
 
@@ -1148,6 +1161,13 @@ jobs:
             echo ""
             echo "❌ BUILD GAGAL karena Dart source syntax error di project"
             echo "Fix: periksa file dart yang error (lihat log di atas), pastikan semua import statements benar"
+            exit 1
+          fi
+
+          if [ "$SUCCESS" = "fatal_xml" ]; then
+            echo ""
+            echo "❌ BUILD GAGAL karena xml version conflict antar dependencies"
+            echo "Fix: pastikan dependency_overrides xml sudah ter-inject, atau update better_player/youtube_explode_dart"
             exit 1
           fi
 
